@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xharmonic"
+version = "0.1.0"
+description = "Pre-release harmonic fitting for xarray DataArray objects"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "OpenAI Codex"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "numpy",
+  "xarray[complete]",
+]
+
+[project.optional-dependencies]
+dask = ["dask"]
+cftime = ["cftime"]
+docs = [
+  "sphinx>=7",
+  "myst-parser>=2",
+  "myst-nb>=1",
+  "pandas",
+  "dask",
+  "cftime",
+]
+test = [
+  "pytest",
+  "pandas",
+  "dask",
+  "cftime",
+]
+
+[tool.setuptools.packages.find]
+include = ["xharmonic*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
