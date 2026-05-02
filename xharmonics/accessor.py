@@ -1,5 +1,7 @@
 """xarray accessors for the harmonic fitting API."""
 
+from __future__ import annotations
+
 import xarray as xr
 
 from .core import evaluate, fit
@@ -9,7 +11,7 @@ from .core import evaluate, fit
 class HarmonicDataArrayAccessor:
     """DataArray accessor for fitting harmonic coefficients."""
 
-    def __init__(self, xarray_obj):
+    def __init__(self, xarray_obj: xr.DataArray) -> None:
         """Store the accessed DataArray.
 
         Args:
@@ -19,27 +21,15 @@ class HarmonicDataArrayAccessor:
 
     def fit(
         self,
-        time_dim="time",
-        n_harmonics=2,
-        fundamental_period=None,
-        weights=None,
-        skipna=True,
-    ):
+        time_dim: str = "time",
+        n_harmonics: int = 2,
+        fundamental_period: float | None = None,
+        weights: xr.DataArray | None = None,
+        skipna: bool = True,
+    ) -> xr.Dataset:
         """Fit harmonics to the accessed DataArray.
 
-        Args:
-            time_dim: Name of the time dimension.
-            n_harmonics: Number of positive harmonics to fit.
-            fundamental_period: Fundamental period, or `None` to infer for
-                datetime-like time. This is the longest fitted period.
-            weights: Optional finite positive weights with dims `(time_dim,)`.
-            skipna: Whether to fit each vectorized signal using only finite
-                data samples.
-
-        Returns:
-            coefficient_dataset: Dataset with `coef` dims
-                `(*non_time_dims, harmonic, basis)` and `phase` dims
-                `(*non_time_dims, harmonic)`.
+        See `xharmonics.fit` for parameter and return-value details.
         """
         return fit(
             self._obj,
@@ -55,7 +45,7 @@ class HarmonicDataArrayAccessor:
 class HarmonicDatasetAccessor:
     """Dataset accessor for evaluating harmonic coefficient datasets."""
 
-    def __init__(self, xarray_obj):
+    def __init__(self, xarray_obj: xr.Dataset) -> None:
         """Store the accessed Dataset.
 
         Args:
@@ -63,15 +53,13 @@ class HarmonicDatasetAccessor:
         """
         self._obj = xarray_obj
 
-    def evaluate(self, time, time_dim="time"):
+    def evaluate(
+        self,
+        time: xr.DataArray,
+        time_dim: str = "time",
+    ) -> xr.DataArray:
         """Evaluate the accessed coefficient Dataset.
 
-        Args:
-            time: One-dimensional datetime-like coordinate with shape
-                `(n_time,)`.
-            time_dim: Name of the output time dimension.
-
-        Returns:
-            fit_data_array: DataArray with dims `(harmonic, time_dim, *non_time_dims)`.
+        See `xharmonics.evaluate` for parameter and return-value details.
         """
         return evaluate(self._obj, time=time, time_dim=time_dim)

@@ -121,11 +121,12 @@ def _lstsq(data_array, weight_array, time_offsets, fundamental_period, n_harmoni
         skipna: Passed through to `_lstsq_1d`.
 
     Returns:
-        coefficients: Coefficients as a DataArray with dimensions
-            `(*non_time_dims, harmonic, basis)`. `harmonic` has length
-            `n_harmonics + 1`; `basis` has length 2.
+        coefficient_dataset: Dataset with `coef` (dims
+            `(*non_time_dims, harmonic, basis)`) and `phase` (dims
+            `(*non_time_dims, harmonic)`). `harmonic` has length
+            `n_harmonics + 1`; `basis` is `["cos", "sin"]`.
     """
-    return xr.apply_ufunc(
+    coefficients = xr.apply_ufunc(
         _lstsq_1d,
         data_array,
         weight_array,
@@ -146,4 +147,17 @@ def _lstsq(data_array, weight_array, time_offsets, fundamental_period, n_harmoni
                 "basis": 2,
             },
         },
+    )
+    coefficient_array = coefficients.assign_coords(
+        harmonic=np.arange(coefficients.sizes["harmonic"], dtype=int),
+        basis=["cos", "sin"],
+    )
+    phase_array = np.arctan2(
+        coefficient_array.sel(basis="sin"), coefficient_array.sel(basis="cos")
+    )
+    return xr.Dataset(
+        data_vars={
+            "coef": coefficient_array,
+            "phase": phase_array,
+        }
     )

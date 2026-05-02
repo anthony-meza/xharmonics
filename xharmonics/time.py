@@ -10,17 +10,16 @@ def _looks_like_cftime(values):
     """Return whether values appear to contain cftime datetime objects.
 
     Args:
-        values: Array-like object or xarray object. The flattened first element
-            is inspected when the array has at least one value.
+        values: NumPy array. The flattened first element is inspected when the
+            array has at least one value.
 
     Returns:
         looks_like_cftime: `True` when the first value comes from a `cftime`
             module; otherwise `False`. Empty arrays return `False`.
     """
-    value_array = np.asarray(getattr(values, "values", values))
-    if value_array.size == 0:
+    if values.size == 0:
         return False
-    first_value = value_array.reshape(-1)[0]
+    first_value = values.reshape(-1)[0]
     return first_value.__class__.__module__.startswith("cftime")
 
 
@@ -145,12 +144,14 @@ def _time_to_float(values, origin=None, calendar=None):
     return time_offsets, str(origin_value), False, None
 
 
-def infer_sampling_frequency(time, rtol=1e-3):
+def infer_sampling_frequency(
+    time: xr.DataArray,
+    rtol: float = 1e-3,
+) -> tuple[float | None, bool]:
     """Infer sampling frequency from a one-dimensional coordinate.
 
     Args:
-        time: One-dimensional time coordinate with shape `(n_time,)`. May be an
-            xarray DataArray or an array-like object.
+        time: One-dimensional time coordinate DataArray with shape `(n_time,)`.
         rtol: Relative tolerance used to decide whether spacing is regular.
 
     Returns:
@@ -160,18 +161,17 @@ def infer_sampling_frequency(time, rtol=1e-3):
         inferred: Whether `sampling_frequency` was inferred.
 
     Raises:
+        TypeError: If `time` is not an `xarray.DataArray`.
         ValueError: If `time` is not one-dimensional.
     """
-    values = np.asarray(getattr(time, "values", time))
+    if not isinstance(time, xr.DataArray):
+        raise TypeError("time must be an xarray.DataArray.")
+    values = np.asarray(time.values)
     if values.ndim != 1:
         raise ValueError("Time coordinate must be one-dimensional.")
 
     if _is_datetime_like(values):
-        inferred_frequency_string = (
-            xr.infer_freq(time)
-            if isinstance(time, xr.DataArray)
-            else xr.infer_freq(xr.DataArray(values, dims="time"))
-        )
+        inferred_frequency_string = xr.infer_freq(time)
         if inferred_frequency_string is not None and "M" in inferred_frequency_string:
             return 12.0, True
 

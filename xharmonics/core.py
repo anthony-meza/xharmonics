@@ -7,8 +7,8 @@ import warnings
 import numpy as np
 import xarray as xr
 
-from .harmonic_lstsq import _lstsq
-from .harmonic_time import (
+from .lstsq import _lstsq
+from .time import (
     _calendar_name,
     _is_datetime_like,
     _time_to_float,
@@ -17,13 +17,13 @@ from .harmonic_time import (
 
 
 def fit(
-    data_array,
-    time_dim="time",
-    n_harmonics=2,
-    fundamental_period=None,
-    weights=None,
-    skipna=True,
-):
+    data_array: xr.DataArray,
+    time_dim: str = "time",
+    n_harmonics: int = 2,
+    fundamental_period: float | None = None,
+    weights: xr.DataArray | None = None,
+    skipna: bool = True,
+) -> xr.Dataset:
     """Fit harmonic coefficients to an xarray DataArray.
 
     Args:
@@ -89,13 +89,11 @@ def fit(
 
     time_chunks = getattr(data_array, "chunksizes", {}).get(time_dim, ())
     if len(time_chunks) > 1:
-        message = (
+        raise ValueError(
             f"Dimension '{time_dim}' is chunked into multiple chunks. Harmonic fitting "
             f"treats '{time_dim}' as a core dimension. Rechunk with .chunk({{{time_dim!r}: -1}}) "
             "before calling fit."
         )
-        warnings.warn(message, UserWarning, stacklevel=2)
-        raise ValueError(message)
 
     if weights is None:
         weight_array = xr.DataArray(
@@ -123,7 +121,7 @@ def fit(
             raise ValueError("weights must be finite and positive.")
         is_weighted = True
 
-    coefficients = _lstsq(
+    coefficient_dataset = _lstsq(
         data_array.astype(float),
         weight_array,
         time_offsets,
@@ -132,26 +130,11 @@ def fit(
         time_dim,
         skipna,
     )
-    data_units = data_array.attrs.get("units")
 
-    coefficient_array = coefficients.assign_coords(
-        harmonic=np.arange(coefficients.sizes["harmonic"], dtype=int),
-        basis=["cos", "sin"],
-    )
-    phase_array = np.arctan2(
-        coefficient_array.sel(basis="sin"), coefficient_array.sel(basis="cos")
-    )
-    coefficient_dataset = xr.Dataset(
-        data_vars={
-            "coef": coefficient_array,
-            "phase": phase_array,
-        }
-    )
     coefficient_dataset["coef"].attrs["description"] = (
         "Harmonic coefficients indexed by real Fourier basis. "
         "coef.sel(basis='cos') gives a_k; coef.sel(basis='sin') gives b_k."
     )
-    coefficient_dataset["phase"].attrs["description"] = "Phase of each harmonic in radians. harmonic=0 phase is set to 0 by convention."
     coefficient_dataset["phase"].attrs["formula"] = "atan2(b_k, a_k)"
     coefficient_dataset["phase"].attrs["units"] = "radian"
     coefficient_dataset["harmonic"].attrs["description"] = (
@@ -159,32 +142,24 @@ def fit(
         "fundamental_period, the longest fitted period. k=2 has period "
         "fundamental_period/2. In general, harmonic k has period fundamental_period/k."
     )
-    coefficient_dataset["basis"].attrs["description"] = (
-        "Real Fourier basis function. basis='cos' gives the coefficient a_k multiplying "
-        "cos(2*pi*k*t/fundamental_period). basis='sin' gives the coefficient b_k multiplying "
-        "sin(2*pi*k*t/fundamental_period). For harmonic=0, basis='cos' is the mean and basis='sin' is zero."
-    )
+
+    data_units = data_array.attrs.get("units")
     if data_units is not None:
         coefficient_dataset["coef"].attrs["units"] = data_units
 
     coefficient_dataset.attrs.update(
         {
-            "description": "Harmonic coefficients. Evaluate with xharmonics.evaluate(...) or coefficient_dataset.harmonic.evaluate(...).",
-            "model": "x(t) = mean + sum_{k=1}^{K} [a_k cos(2*pi*k*t/fundamental_period) + b_k sin(2*pi*k*t/fundamental_period)]",
+            "xharmonics": "fit",
             "time_dim": time_dim,
-            "fundamental_period": float(resolved_fundamental_period),
+            "fundamental_period": resolved_fundamental_period,
             "fundamental_period_units": "years for datetime-like coordinates; native coordinate units for numeric coordinates",
-            "fundamental_period_inferred": bool(fundamental_period_inferred),
-            "n_harmonics": int(n_harmonics),
-            "sampling_frequency": None if sampling_frequency is None else float(sampling_frequency),
+            "fundamental_period_inferred": fundamental_period_inferred,
+            "n_harmonics": n_harmonics,
+            "sampling_frequency": sampling_frequency,
             "sampling_frequency_units": "samples per year for datetime-like coordinates; samples per native coordinate unit for numeric coordinates",
-            "sampling_frequency_inferred": bool(sampling_frequency_inferred),
-            "time_origin": str(time_origin),
-            "centering": "harmonic=0 is the time mean. Harmonics k>=1 are fit to demeaned data.",
-            "reconstruction": "fit = xharmonics.evaluate(coefficient_dataset, time, time_dim); seasonal = fit.sum('harmonic'); anomaly = original - seasonal",
-            "phase_convention": "phase = atan2(b_k, a_k). harmonic=0 phase is set to 0 by convention. For k>=1, the maximum of harmonic k occurs when 2*pi*k*t/fundamental_period = phase modulo 2*pi.",
-            "weighted": bool(is_weighted),
-            "weights": "Weights enter the least-squares objective as sum_t weights(t) * residual(t)**2. Larger weights give a sample more influence. Use weights for irregular sampling, unequal time intervals, or inverse-variance observational uncertainty. If no weights were supplied, all valid samples were weighted equally.",
+            "sampling_frequency_inferred": sampling_frequency_inferred,
+            "time_origin": time_origin,
+            "weighted": is_weighted,
             "time_kind": "datetime-like" if is_datetime_like else "numeric",
         }
     )
@@ -192,18 +167,22 @@ def fit(
         coefficient_dataset.attrs["calendar"] = calendar
     if data_units is not None:
         coefficient_dataset.attrs["units"] = data_units
+
     return coefficient_dataset
 
 
-def evaluate(coefficient_dataset, time, time_dim="time"):
-    """Evaluate fitted harmonic coefficients on a datetime-like time axis.
+def evaluate(
+    coefficient_dataset: xr.Dataset,
+    time: xr.DataArray,
+    time_dim: str = "time",
+) -> xr.DataArray:
+    """Evaluate fitted harmonic coefficients on a time axis.
 
     Args:
-        coefficient_dataset: Dataset returned by `fit`. It must contain `coef`
-            and `phase` variables plus `fundamental_period` and `time_origin`
-            attributes.
-        time: One-dimensional datetime-like coordinate with shape `(n_time,)`.
-            May be a DataArray or array-like object.
+        coefficient_dataset: Dataset returned by `fit`.
+        time: One-dimensional coordinate DataArray with shape `(n_time,)`. Its
+            kind (datetime-like or numeric) must match the time kind the fit
+            was performed on.
         time_dim: Name to use for the evaluation time dimension.
 
     Returns:
@@ -213,33 +192,23 @@ def evaluate(coefficient_dataset, time, time_dim="time"):
             `harmonic` gives the reconstructed seasonal cycle.
 
     Raises:
-        TypeError: If `coefficient_dataset` is not a Dataset or `time` is not
-            datetime-like.
-        ValueError: If required variables/attributes are missing or `time` is
-            not one-dimensional.
+        TypeError: If `time` is not an `xarray.DataArray` or its kind does not
+            match `coefficient_dataset.attrs["time_kind"]`.
+        ValueError: If `time` is not one-dimensional (raised by the underlying
+            time-coordinate conversion).
         UserWarning: Warns when the fitted calendar and evaluation calendar
             differ.
     """
-    if not isinstance(coefficient_dataset, xr.Dataset):
-        raise TypeError("coefficient_dataset must be the xarray.Dataset returned by fit.")
-
-    required_variables = {"coef", "phase"}
-    missing_variables = required_variables.difference(coefficient_dataset.data_vars)
-    if missing_variables:
-        raise ValueError(f"coefficient_dataset is missing required variables: {sorted(missing_variables)}")
-    for attribute_name in ("fundamental_period", "time_origin"):
-        if attribute_name not in coefficient_dataset.attrs:
-            raise ValueError(f"coefficient_dataset is missing required attribute {attribute_name!r}.")
-
-    if isinstance(time, xr.DataArray):
-        time_array = time
-    else:
-        time_array = xr.DataArray(np.asarray(time), dims=(time_dim,), name=time_dim)
-
-    if time_array.ndim != 1:
-        raise ValueError("time must be one-dimensional.")
-    if not _is_datetime_like(time_array):
-        raise TypeError("evaluate currently requires datetime-like time coordinates.")
+    if getattr(coefficient_dataset, "attrs", {}).get("xharmonics") != "fit":
+        raise TypeError("coefficient_dataset must be the xarray.Dataset returned by xharmonics.fit.")
+    if not isinstance(time, xr.DataArray):
+        raise TypeError("time must be an xarray.DataArray.")
+    fit_kind = coefficient_dataset.attrs["time_kind"]
+    if (fit_kind == "datetime-like") != _is_datetime_like(time):
+        raise TypeError(
+            f"time kind does not match the coefficient_dataset (fit on {fit_kind!r})."
+        )
+    time_array = time
     fit_calendar = coefficient_dataset.attrs.get("calendar")
     target_calendar = _calendar_name(time_array)
     if fit_calendar is not None and target_calendar is not None and fit_calendar != target_calendar:
@@ -257,8 +226,7 @@ def evaluate(coefficient_dataset, time, time_dim="time"):
         calendar=coefficient_dataset.attrs.get("calendar"),
     )
     time_offset_array = xr.DataArray(time_offsets, dims=(time_dim,), coords={time_dim: time_array.values})
-    harmonic_index = coefficient_dataset["harmonic"].astype(float)
-    harmonic_angle = 2.0 * np.pi * harmonic_index * time_offset_array / float(coefficient_dataset.attrs["fundamental_period"])
+    harmonic_angle = 2.0 * np.pi * coefficient_dataset["harmonic"] * time_offset_array / coefficient_dataset.attrs["fundamental_period"]
     fit_data_array = coefficient_dataset["coef"].sel(basis="cos") * np.cos(harmonic_angle) + coefficient_dataset["coef"].sel(
         basis="sin"
     ) * np.sin(harmonic_angle)
@@ -266,9 +234,7 @@ def evaluate(coefficient_dataset, time, time_dim="time"):
     fit_data_array.name = "fit"
     fit_data_array.attrs.update(
         {
-            "description": "Reconstructed contribution from each harmonic. Sum over 'harmonic' to get the fitted seasonal cycle.",
             "formula": "fit[k,t] = a_k cos(2*pi*k*t/fundamental_period) + b_k sin(2*pi*k*t/fundamental_period); fit[0,t] = mean",
-            "reconstruction": "seasonal = fit.sum('harmonic'); anomaly = original - seasonal",
             "fundamental_period": coefficient_dataset.attrs["fundamental_period"],
             "time_origin": coefficient_dataset.attrs["time_origin"],
         }

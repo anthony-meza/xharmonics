@@ -1,6 +1,6 @@
 project = "xharmonics"
 author = "OpenAI Codex"
-extensions = ["myst_nb"]
+extensions = ["myst_nb", "myst_parser"]
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",

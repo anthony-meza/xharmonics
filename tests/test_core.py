@@ -128,8 +128,46 @@ def test_numeric_time_with_period_works():
 def test_evaluate_with_numeric_time_raises():
     da = _monthly_signal()
     coef = xh.fit(da, n_harmonics=2)
-    with pytest.raises(TypeError, match="datetime-like"):
+    numeric_time = xr.DataArray(np.arange(da.sizes["time"]), dims=("time",))
+    with pytest.raises(TypeError, match="time kind does not match"):
+        xh.evaluate(coef, time=numeric_time, time_dim="time")
+
+
+def test_evaluate_numeric_round_trip():
+    t = np.arange(48.0)
+    da = xr.DataArray(
+        3.0 + np.cos(2 * np.pi * t / 12.0) - 0.4 * np.sin(2 * np.pi * t / 12.0),
+        dims=("time",),
+        coords={"time": t},
+    )
+    coef = xh.fit(da, n_harmonics=1, fundamental_period=12.0)
+    fit_da = xh.evaluate(coef, time=da["time"], time_dim="time")
+    xr.testing.assert_allclose(fit_da.sum("harmonic"), da, atol=1e-6)
+
+
+def test_evaluate_datetime_time_on_numeric_fit_raises():
+    t = np.arange(24.0)
+    da = xr.DataArray(np.cos(2 * np.pi * t / 12.0), dims=("time",), coords={"time": t})
+    coef = xh.fit(da, n_harmonics=1, fundamental_period=12.0)
+    datetime_time = xr.DataArray(
+        pd.date_range("2000-01-01", periods=24, freq="MS"), dims=("time",)
+    )
+    with pytest.raises(TypeError, match="time kind does not match"):
+        xh.evaluate(coef, time=datetime_time, time_dim="time")
+
+
+def test_evaluate_rejects_non_dataarray_time():
+    da = _monthly_signal()
+    coef = xh.fit(da, n_harmonics=2)
+    with pytest.raises(TypeError, match="xarray.DataArray"):
         xh.evaluate(coef, time=np.arange(da.sizes["time"]), time_dim="time")
+
+
+def test_evaluate_rejects_unmarked_dataset():
+    da = _monthly_signal()
+    not_a_fit = xr.Dataset({"data": da})
+    with pytest.raises(TypeError, match="xharmonics.fit"):
+        xh.evaluate(not_a_fit, time=da["time"], time_dim="time")
 
 
 def test_skipna_true_with_some_nans():
@@ -139,13 +177,12 @@ def test_skipna_true_with_some_nans():
     assert np.isfinite(coef["coef"].sel(harmonic=1, basis="cos"))
 
 
-def test_dask_multichunk_time_warns_and_aborts():
+def test_dask_multichunk_time_aborts():
     dask = pytest.importorskip("dask.array")
     da = _monthly_signal()
     chunked = da.chunk({"time": 12})
-    with pytest.warns(UserWarning, match="core dimension"):
-        with pytest.raises(ValueError, match="core dimension"):
-            xh.fit(chunked, n_harmonics=2)
+    with pytest.raises(ValueError, match="core dimension"):
+        xh.fit(chunked, n_harmonics=2)
 
 
 def test_dask_single_time_chunk_fits():
