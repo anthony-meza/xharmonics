@@ -1,4 +1,4 @@
-project = "xharmonic"
+project = "xharmonics"
 author = "OpenAI Codex"
 extensions = ["myst_nb"]
 source_suffix = {

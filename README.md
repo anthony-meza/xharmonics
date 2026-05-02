@@ -1,6 +1,6 @@
-# xharmonic
+# xharmonics
 
-`xharmonic` is an alpha-stage package for fitting low-order harmonic models to `xarray.DataArray` objects.
+`xharmonics` is an alpha-stage package for fitting low-order harmonic models to `xarray.DataArray` objects.
 
 It currently focuses on a narrow first release:
 
@@ -14,7 +14,7 @@ It currently focuses on a narrow first release:
 ## Install
 
 ```bash
-python -m pip install xharmonic
+python -m pip install xharmonics
 ```
 
 If you want xarray's full plotting and optional IO stack:
@@ -26,7 +26,7 @@ python -m pip install "xarray[complete]"
 ## Quickstart
 
 ```python
-import xharmonic as xh
+import xharmonics as xh
 
 coef_ds = xh.fit(da, time_dim="time", n_harmonics=2)
 fit_da = xh.evaluate(coef_ds, time=da["time"], time_dim="time")
@@ -40,7 +40,7 @@ anom = da - seasonal
 Accessor API:
 
 ```python
-import xharmonic
+import xharmonics
 
 coef_ds = da.harmonic.fit(time_dim="time", n_harmonics=2)
 fit_da = coef_ds.harmonic.evaluate(time=da["time"], time_dim="time")

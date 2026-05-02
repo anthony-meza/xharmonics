@@ -1,19 +1,19 @@
-# xharmonic
+# xharmonics
 
-`xharmonic` fits low-order harmonic models to `xarray.DataArray` objects and returns coefficient datasets that can be evaluated later on an explicit datetime-like time axis.
+`xharmonics` fits low-order harmonic models to `xarray.DataArray` objects and returns coefficient datasets that can be evaluated later on an explicit datetime-like time axis.
 
 This package is currently alpha-stage. The implementation is intentionally narrow in this first version: DataArray input only, coefficient-only fitting, explicit evaluation on a supplied time axis, no rolling support yet, and limited calendar semantics outside the common monthly workflow.
 
 ## Install
 
 ```bash
-pip install xharmonic
+pip install xharmonics
 ```
 
 ## Quickstart
 
 ```python
-import xharmonic as xh
+import xharmonics as xh
 
 coef_ds = xh.fit(da, time_dim="time", n_harmonics=2)
 fit_da = xh.evaluate(coef_ds, time=da["time"], time_dim="time")
@@ -27,7 +27,7 @@ anom = da - seasonal
 ## Accessor API
 
 ```python
-import xharmonic
+import xharmonics
 
 coef_ds = da.harmonic.fit(time_dim="time", n_harmonics=2)
 fit_da = coef_ds.harmonic.evaluate(time=da["time"], time_dim="time")

@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "xharmonic"
+name = "xharmonics"
 version = "0.1.0"
 description = "Pre-release harmonic fitting for xarray DataArray objects"
 readme = "README.md"
@@ -45,7 +45,8 @@ test = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["xharmonic*"]
+include = ["xharmonics*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

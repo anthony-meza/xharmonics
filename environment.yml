@@ -1,4 +1,4 @@
-name: xharmonic-rtd
+name: xharmonics-rtd
 channels:
   - conda-forge
 dependencies:

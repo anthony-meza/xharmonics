@@ -2,7 +2,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-import xharmonic
+import xharmonics
 
 
 def _data():
@@ -28,7 +28,7 @@ def test_accessor_registration():
 
 def test_function_and_accessor_equivalent():
     da = _data()
-    coef_func = xharmonic.fit(da, n_harmonics=2)
+    coef_func = xharmonics.fit(da, n_harmonics=2)
     coef_acc = da.harmonic.fit(n_harmonics=2)
     xr.testing.assert_allclose(coef_func["coef"], coef_acc["coef"])
     xr.testing.assert_allclose(coef_func["phase"], coef_acc["phase"])

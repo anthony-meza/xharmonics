@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-import xharmonic as xh
+import xharmonics as xh
 
 
 def _monthly_signal(periods=24 * 12):
@@ -139,14 +139,22 @@ def test_skipna_true_with_some_nans():
     assert np.isfinite(coef["coef"].sel(harmonic=1, basis="cos"))
 
 
-def test_dask_multichunk_requires_allow_rechunk():
+def test_dask_multichunk_time_warns_and_aborts():
     dask = pytest.importorskip("dask.array")
     da = _monthly_signal()
     chunked = da.chunk({"time": 12})
-    with pytest.raises(ValueError, match="core dimension"):
-        xh.fit(chunked, n_harmonics=2)
-    coef = xh.fit(chunked, n_harmonics=2, allow_rechunk=True)
-    assert "coef" in coef
+    with pytest.warns(UserWarning, match="core dimension"):
+        with pytest.raises(ValueError, match="core dimension"):
+            xh.fit(chunked, n_harmonics=2)
+
+
+def test_dask_single_time_chunk_fits():
+    dask = pytest.importorskip("dask.array")
+    da = _monthly_signal()
+    chunked = da.chunk({"time": -1})
+    coef = xh.fit(chunked, n_harmonics=2).load()
+    expected = xh.fit(da, n_harmonics=2)
+    xr.testing.assert_allclose(coef["coef"], expected["coef"])
 
 
 def test_weights_sets_weighted_attr():
@@ -154,6 +162,26 @@ def test_weights_sets_weighted_attr():
     weights = da["time"].dt.days_in_month
     coef = xh.fit(da, n_harmonics=2, weights=weights)
     assert coef.attrs["weighted"] is True
+
+
+def test_weights_do_not_change_returned_mean():
+    da = _monthly_signal(periods=12)
+    weights = xr.DataArray(
+        np.linspace(1.0, 100.0, da.sizes["time"]),
+        dims=("time",),
+        coords={"time": da["time"]},
+    )
+
+    coef = xh.fit(da, n_harmonics=1, weights=weights)
+
+    assert np.isclose(
+        coef["coef"].sel(harmonic=0, basis="cos"),
+        da.mean("time"),
+    )
+    assert not np.isclose(
+        coef["coef"].sel(harmonic=0, basis="cos"),
+        da.weighted(weights).mean("time"),
+    )
 
 
 def test_weights_dataset_uses_matching_variable_name():
@@ -196,6 +224,27 @@ def test_weights_numpy_array_raises():
     weights = np.ones(da.sizes["time"])
     with pytest.raises(TypeError, match="xarray.DataArray"):
         xh.fit(da, n_harmonics=2, weights=weights)
+
+
+def test_weights_must_be_finite_and_positive():
+    da = _monthly_signal()
+    zero_weight = xr.DataArray(
+        np.ones(da.sizes["time"]),
+        dims=("time",),
+        coords={"time": da["time"]},
+    )
+    zero_weight[0] = 0.0
+    with pytest.raises(ValueError, match="finite and positive"):
+        xh.fit(da, n_harmonics=2, weights=zero_weight)
+
+    nan_weight = xr.DataArray(
+        np.ones(da.sizes["time"]),
+        dims=("time",),
+        coords={"time": da["time"]},
+    )
+    nan_weight[0] = np.nan
+    with pytest.raises(ValueError, match="finite and positive"):
+        xh.fit(da, n_harmonics=2, weights=nan_weight)
 
 
 def test_n_harmonics_zero():
