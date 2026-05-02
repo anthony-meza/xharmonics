@@ -3,8 +3,6 @@ author = "OpenAI Codex"
 extensions = ["myst_nb", "myst_parser"]
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
-    ".ipynb": "myst-nb",
 }
 master_doc = "index"
 exclude_patterns = ["_build"]
