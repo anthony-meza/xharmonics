@@ -1,5 +1,7 @@
 # xharmonics
 
+[![Documentation Status](https://readthedocs.org/projects/xharmonics/badge/?version=latest)](https://xharmonics.readthedocs.io/en/latest/?badge=latest)
+
 `xharmonics` is an alpha-stage package for fitting low-order harmonic models to `xarray.DataArray` objects.
 
 It currently focuses on a narrow first release:
