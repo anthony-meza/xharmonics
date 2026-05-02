@@ -21,25 +21,20 @@ class HarmonicDataArrayAccessor:
         self,
         time_dim="time",
         n_harmonics=2,
-        seasonal_period=None,
-        sampling_frequency=None,
+        fundamental_period=None,
         weights=None,
         skipna=True,
-        rtol=1e-3,
     ):
         """Fit harmonics to the accessed DataArray.
 
         Args:
             time_dim: Name of the time dimension.
             n_harmonics: Number of positive harmonics to fit.
-            seasonal_period: Period of harmonic 1, or `None` to infer for
-                datetime-like time.
-            sampling_frequency: Sampling frequency for the Nyquist check, or
-                `None` to infer when possible.
+            fundamental_period: Fundamental period, or `None` to infer for
+                datetime-like time. This is the longest fitted period.
             weights: Optional finite positive weights with dims `(time_dim,)`.
             skipna: Whether to fit each vectorized signal using only finite
                 data samples.
-            rtol: Relative tolerance for sampling-frequency inference.
 
         Returns:
             coefficient_dataset: Dataset with `coef` dims
@@ -50,11 +45,9 @@ class HarmonicDataArrayAccessor:
             self._obj,
             time_dim=time_dim,
             n_harmonics=n_harmonics,
-            seasonal_period=seasonal_period,
-            sampling_frequency=sampling_frequency,
+            fundamental_period=fundamental_period,
             weights=weights,
             skipna=skipna,
-            rtol=rtol,
         )
 
 

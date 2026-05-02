@@ -52,10 +52,11 @@ For `n_harmonics=K`, `fit` estimates
 
 ```text
 x(t) = mean + sum_{k=1}^{K}
-       [a_k cos(2*pi*k*t/seasonal_period)
-      + b_k sin(2*pi*k*t/seasonal_period)]
+       [a_k cos(2*pi*k*t/fundamental_period)
+      + b_k sin(2*pi*k*t/fundamental_period)]
 ```
 
+`fundamental_period` is the fundamental period, i.e. the longest fitted period.
 `harmonic=0` is the mean by construction. The returned `basis` coordinate indexes the real Fourier basis functions `"cos"` and `"sin"`.
 
 ## Status

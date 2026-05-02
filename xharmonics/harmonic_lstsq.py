@@ -7,12 +7,12 @@ import xarray as xr
 from numpy.linalg import pinv
 
 
-def _basis(time_offsets, seasonal_period, n_harmonics):
+def _basis(time_offsets, fundamental_period, n_harmonics):
     """Build the real Fourier design matrix for one time axis.
 
     Args:
         time_offsets: Floating time coordinate with shape `(n_time,)`.
-        seasonal_period: Period of harmonic 1 in `time_offsets` units.
+        fundamental_period: Fundamental period in `time_offsets` units.
         n_harmonics: Number of positive harmonics to include.
 
     Returns:
@@ -23,14 +23,14 @@ def _basis(time_offsets, seasonal_period, n_harmonics):
         return np.empty((time_offsets.size, 0), dtype=float)
 
     harmonics = np.arange(1, n_harmonics + 1, dtype=float)
-    angle = 2.0 * np.pi * time_offsets[:, None] * harmonics[None, :] / seasonal_period
+    angle = 2.0 * np.pi * time_offsets[:, None] * harmonics[None, :] / fundamental_period
     basis = np.empty((time_offsets.size, 2 * n_harmonics), dtype=float)
     basis[:, 0::2] = np.cos(angle)
     basis[:, 1::2] = np.sin(angle)
     return basis
 
 
-def _lstsq_1d(data_values, weight_values, time_offsets, seasonal_period, n_harmonics, skipna):
+def _lstsq_1d(data_values, weight_values, time_offsets, fundamental_period, n_harmonics, skipna):
     """Fit harmonic coefficients for a single one-dimensional signal.
 
     Fits `x(t) = mean + sum_k [a_k cos(2*pi*k*t/T) + b_k sin(2*pi*k*t/T)]`.
@@ -52,7 +52,7 @@ def _lstsq_1d(data_values, weight_values, time_offsets, seasonal_period, n_harmo
         data_values: Data values for one signal with shape `(n_time,)`.
         weight_values: Positive sample weights with shape `(n_time,)`.
         time_offsets: Floating time coordinate with shape `(n_time,)`.
-        seasonal_period: Period of harmonic 1 in `time_offsets` units.
+        fundamental_period: Fundamental period in `time_offsets` units.
         n_harmonics: Number of positive harmonics to fit.
         skipna: If `True`, fit using samples where data are finite. If `False`,
             return NaN coefficients for any series with a nonfinite data value.
@@ -93,7 +93,7 @@ def _lstsq_1d(data_values, weight_values, time_offsets, seasonal_period, n_harmo
     if n_harmonics == 0:
         return coefficients
 
-    B = _basis(valid_time_offsets, seasonal_period, n_harmonics)
+    B = _basis(valid_time_offsets, fundamental_period, n_harmonics)
     W = np.diag(valid_weight_values)
     try:
         c_hat = pinv(B.T @ W @ B) @ B.T @ W @ (x - mean)
@@ -105,7 +105,7 @@ def _lstsq_1d(data_values, weight_values, time_offsets, seasonal_period, n_harmo
     return coefficients
 
 
-def _lstsq(data_array, weight_array, time_offsets, seasonal_period, n_harmonics, time_dim, skipna):
+def _lstsq(data_array, weight_array, time_offsets, fundamental_period, n_harmonics, time_dim, skipna):
     """Vectorize one-dimensional harmonic fitting over non-time dimensions.
 
     Args:
@@ -115,7 +115,7 @@ def _lstsq(data_array, weight_array, time_offsets, seasonal_period, n_harmonics,
             `(time_dim,)`.
         time_offsets: Floating time coordinate with shape `(n_time,)`, matching
             `data_array.sizes[time_dim]`.
-        seasonal_period: Period of harmonic 1 in `time_offsets` units.
+        fundamental_period: Fundamental period in `time_offsets` units.
         n_harmonics: Number of positive harmonics to fit.
         time_dim: Name of the time dimension in `data` and `weights`.
         skipna: Passed through to `_lstsq_1d`.
@@ -136,7 +136,7 @@ def _lstsq(data_array, weight_array, time_offsets, seasonal_period, n_harmonics,
         vectorize=True,
         dask="parallelized",
         kwargs={
-            "seasonal_period": seasonal_period,
+            "fundamental_period": fundamental_period,
             "n_harmonics": n_harmonics,
             "skipna": skipna,
         },

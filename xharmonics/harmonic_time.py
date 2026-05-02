@@ -93,7 +93,7 @@ def _time_to_float(values, origin=None, calendar=None):
             values.
 
     Returns:
-        t_float: NumPy float array with shape `(n_time,)`. Datetime-like
+        t_float: Finite NumPy float array with shape `(n_time,)`. Datetime-like
             coordinates are expressed in years since `origin`; numeric
             coordinates are expressed in native coordinate units since `origin`.
         origin_str: String representation of the time origin.
@@ -101,7 +101,8 @@ def _time_to_float(values, origin=None, calendar=None):
         calendar_name: Calendar used for cftime conversion, or `None`.
 
     Raises:
-        ValueError: If `values` is not one-dimensional or is empty.
+        ValueError: If `values` is not one-dimensional, is empty, or produces
+            nonfinite numeric offsets.
         ImportError: If cftime values are supplied but `cftime` is not
             installed.
     """
@@ -115,7 +116,10 @@ def _time_to_float(values, origin=None, calendar=None):
         origin_value = value_array.reshape(-1)[0] if origin is None else np.datetime64(origin)
         origin_str = np.datetime_as_string(origin_value, unit="ns")
         days_since_origin = (value_array - origin_value) / np.timedelta64(1, "D")
-        return np.asarray(days_since_origin, dtype=float) / 365.2425, origin_str, True, None
+        time_offsets = np.asarray(days_since_origin, dtype=float) / 365.2425
+        if not np.all(np.isfinite(time_offsets)):
+            raise ValueError("Time coordinate must produce finite numeric offsets.")
+        return time_offsets, origin_str, True, None
 
     if _looks_like_cftime(value_array):
         try:
@@ -128,11 +132,17 @@ def _time_to_float(values, origin=None, calendar=None):
         origin_str = str(first_value if origin is None else origin)
         units = f"days since {origin_str}"
         days_since_origin = cftime.date2num(value_array.tolist(), units=units, calendar=calendar_name)
-        return np.asarray(days_since_origin, dtype=float) / _days_per_year(calendar_name), origin_str, True, calendar_name
+        time_offsets = np.asarray(days_since_origin, dtype=float) / _days_per_year(calendar_name)
+        if not np.all(np.isfinite(time_offsets)):
+            raise ValueError("Time coordinate must produce finite numeric offsets.")
+        return time_offsets, origin_str, True, calendar_name
 
     origin_value = value_array.reshape(-1)[0] if origin is None else origin
     numeric_values = np.asarray(value_array, dtype=float)
-    return numeric_values - float(origin_value), str(origin_value), False, None
+    time_offsets = numeric_values - float(origin_value)
+    if not np.all(np.isfinite(time_offsets)):
+        raise ValueError("Time coordinate must produce finite numeric offsets.")
+    return time_offsets, str(origin_value), False, None
 
 
 def infer_sampling_frequency(time, rtol=1e-3):

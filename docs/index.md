@@ -47,7 +47,8 @@ fit_da = coef_ds.harmonic.evaluate(time=da["time"], time_dim="time")
 - `basis` indexes the real Fourier basis functions `"cos"` and `"sin"`.
 - Datetime-like coordinates are converted to fractional years internally.
 - daily and monthly datetime-like data are supported.
-- Numeric time requires an explicit `seasonal_period` during fitting.
+- Numeric time requires an explicit `fundamental_period` during fitting. This is
+  the fundamental period, i.e. the longest fitted period.
 
 ## Calendar and leap-year behavior
 

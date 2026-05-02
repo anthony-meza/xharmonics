@@ -76,13 +76,13 @@ def test_annual_and_semiannual_coefficients():
 def test_nyquist_error():
     da = _monthly_signal()
     with pytest.raises(ValueError, match="Nyquist"):
-        xh.fit(da, n_harmonics=7, sampling_frequency=12.0)
+        xh.fit(da, n_harmonics=7)
 
 
 def test_infers_datetime_defaults():
     da = _monthly_signal()
     coef = xh.fit(da, n_harmonics=2)
-    assert coef.attrs["seasonal_period"] == 1.0
+    assert coef.attrs["fundamental_period"] == 1.0
     assert coef.attrs["sampling_frequency"] == 12.0
 
 
@@ -110,7 +110,7 @@ def test_daily_reconstruction_spanning_leap_year():
 
 def test_numeric_time_without_period_raises():
     da = xr.DataArray(np.arange(24.0), dims=("time",), coords={"time": np.arange(24.0)})
-    with pytest.raises(ValueError, match="seasonal_period"):
+    with pytest.raises(ValueError, match="fundamental_period"):
         xh.fit(da, n_harmonics=1)
 
 
@@ -121,7 +121,7 @@ def test_numeric_time_with_period_works():
         dims=("time",),
         coords={"time": t},
     )
-    coef = xh.fit(da, n_harmonics=1, seasonal_period=12.0)
+    coef = xh.fit(da, n_harmonics=1, fundamental_period=12.0)
     assert np.isclose(coef["coef"].sel(harmonic=1, basis="cos"), 1.0)
 
 
@@ -184,7 +184,7 @@ def test_weights_do_not_change_returned_mean():
     )
 
 
-def test_weights_dataset_uses_matching_variable_name():
+def test_weights_dataset_raises():
     da = _monthly_signal()
     weights = xr.Dataset(
         {
@@ -192,30 +192,10 @@ def test_weights_dataset_uses_matching_variable_name():
                 da["time"].dt.days_in_month,
                 dims=("time",),
                 coords={"time": da["time"]},
-            ),
-            "other": xr.DataArray(
-                np.ones(da.sizes["time"]),
-                dims=("time",),
-                coords={"time": da["time"]},
-            ),
-        }
-    )
-    coef = xh.fit(da, n_harmonics=2, weights=weights)
-    assert coef.attrs["weighted"] is True
-
-
-def test_weights_dataset_requires_matching_variable_name():
-    da = _monthly_signal()
-    weights = xr.Dataset(
-        {
-            "other": xr.DataArray(
-                da["time"].dt.days_in_month,
-                dims=("time",),
-                coords={"time": da["time"]},
             )
         }
     )
-    with pytest.raises(ValueError, match="does not contain a variable"):
+    with pytest.raises(TypeError, match="xarray.DataArray"):
         xh.fit(da, n_harmonics=2, weights=weights)
 
 
