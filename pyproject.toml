@@ -22,26 +22,26 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+  "cftime",
   "numpy",
-  "xarray[complete]",
+  "pandas",
+  "xarray",
+  "xarray-einstats",
 ]
 
 [project.optional-dependencies]
 dask = ["dask"]
-cftime = ["cftime"]
 docs = [
   "sphinx>=7",
   "myst-parser>=2",
   "myst-nb>=1",
   "pandas",
   "dask",
-  "cftime",
 ]
 test = [
   "pytest",
   "pandas",
   "dask",
-  "cftime",
 ]
 
 [tool.setuptools.packages.find]
@@ -50,3 +50,14 @@ include = ["xharmonics*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "NPY", "D"]
+ignore = ["D105", "D107"]
+per-file-ignores = {"tests/*" = ["D"]}
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

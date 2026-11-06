@@ -1,5 +1,17 @@
 # Quickstart
 
+## Installation
+
+```bash
+pip install xharmonics
+```
+
+## Example Usage
+
+You can use `xharmonics` through its functional or accessor APIs.
+
+The core functions are `fit` and `evaluate`:
+
 ```python
 import xharmonics as xh
 
@@ -12,7 +24,7 @@ semiannual = fit_da.sel(harmonic=2)
 anom = da - seasonal
 ```
 
-## Accessor API
+Alternatively, you can use the `.harmonic` accessor for a more chainable syntax:
 
 ```python
 import xharmonics
